@@ -32,7 +32,7 @@ def dashboard():
     end_date = request.form.get("end_date")
 
     filtered_df = get_filtered_data(selected_platform, start_date, end_date)
-
+    filtered_df.rename(columns={"post_day":"Jours"}, inplace=True)
     # Graphique 1: Répartition des types de posts
     fig1 = px.pie(filtered_df, names='post_type', title="Répartition des types de publications")
     graph1 = pio.to_html(fig1, full_html=False)
@@ -42,8 +42,8 @@ def dashboard():
     graph2 = pio.to_html(fig2, full_html=False)
 
     # Graphique 3: Moyenne des likes par jour
-    likes_by_day = filtered_df.groupby("post_day")["likes"].mean().reset_index()
-    fig3 = px.bar(likes_by_day, x='post_day', y='likes', title="Moyenne des likes par jour de la semaine")
+    likes_by_day = filtered_df.groupby("Jours")["likes"].mean().reset_index()
+    fig3 = px.bar(likes_by_day, x='Jours', y='likes', title="Moyenne des likes par jour de la semaine")
     graph3 = pio.to_html(fig3, full_html=False)
 
     # Graphique 4: Moyenne des partages par plateforme
@@ -65,16 +65,16 @@ def dashboard():
     # Ordre des jours souhaité
     days_order = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
 
-    # Convertir 'post_day' en type Categorical avec ordre défini
-    filtered_df['post_day'] = pd.Categorical(filtered_df['post_day'], categories=days_order, ordered=True)
+    # Convertir 'Jours' en type Categorical avec ordre défini
+    filtered_df['Jours'] = pd.Categorical(filtered_df['Jours'], categories=days_order, ordered=True)
 
     # Regrouper les données
-    type_by_day = filtered_df.groupby(['post_day', 'post_type']).size().reset_index(name='count')
+    type_by_day = filtered_df.groupby(['Jours', 'post_type']).size().reset_index(name='Postes')
 
     # Tracer le graphique avec l'ordre des jours respecté
-    fig7 = px.bar(type_by_day, x='post_day', y='count', color='post_type', barmode='group',
+    fig7 = px.bar(type_by_day, x='Jours', y='Postes', color='post_type', barmode='group',
               title="Types de publications par jour",
-              category_orders={"post_day": days_order})
+              category_orders={"Jours": days_order})
 
     graph7 = pio.to_html(fig7, full_html=False)
 
@@ -83,14 +83,22 @@ def dashboard():
     graphs = [graph1, graph2, graph3, graph4, graph5, graph6, graph7]
 
     # Moyennes générales
-    avg_stats = {
-        #"likes": round(filtered_df["likes"].mean(), 2),
-        "likes": round(filtered_df["likes"].mean()),
-        "comments": round(filtered_df["comments"].mean()),
-        "shares": round(filtered_df["shares"].mean())
-    }
+    if not filtered_df.empty :
+        avg_stats = {
+            #"likes": round(filtered_df["likes"].mean(), 2),
+            "likes": round(filtered_df["likes"].mean()),
+            "comments": round(filtered_df["comments"].mean()),
+            "shares": round(filtered_df["shares"].mean())
+     }
+    else:
+        avg_stats = {
+            "likes":0,
+            "comments" : 0,
+            "shares": 0
+        }
 
     platforms = df["platform"].unique().tolist()
+    #nombre total de poste
     total_posts = len(filtered_df)
 
 
@@ -110,14 +118,13 @@ def export_pdf():
     end_date = request.args.get("end_date")
 
     filtered_df = get_filtered_data(selected_platform, start_date, end_date)
+    filtered_df.rename(columns={"post_id":"ID","post_day":"Jours", "comments":"Commentaires", "shares":"partage","platform":"Platefome","post_time":"Date", "post_type":"Types", "sentiment_score":"Sentiments"}, inplace=True)
 
     rendered_html = render_template("export_pdf.html", table_data=filtered_df.to_dict(orient="records"))
 
-    # 🔧 Spécifie ici le chemin vers wkhtmltopdf.exe
+    # Spécifier votre chemin vers wkhtmltopdf.exe
     path_wkhtmltopdf = r"C:\Program Files\wkhtmltopdf\bin\wkhtmltopdf.exe"
     config = pdfkit.configuration(wkhtmltopdf=path_wkhtmltopdf)
-
-    # Si tu utilises WeasyPrint ou xhtml2pdf tu peux compléter ici
 
     pdf = pdfkit.from_string(rendered_html, False, configuration=config)
 
